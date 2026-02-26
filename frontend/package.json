@@ -1,0 +1,12 @@
+{
+  "name": "tax-translator-frontend",
+  "version": "1.0.0",
+  "description": "Frontend for Global Tax-Code Translator Agent",
+  "scripts": {
+    "dev": "npx serve -l 3000",
+    "start": "npx serve -l 3000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global Tax-Code Translator Agent</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🌍</span>
+                <h1>Tax-Code Translator</h1>
+            </div>
+            <p class="tagline">Transform tax documents into machine-readable formats with AI</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section">
+                <div class="card">
+                    <h2>📄 Upload Document</h2>
+                    
+                    <!-- Tab Navigation -->
+                    <div class="tabs">
+                        <button class="tab active" data-tab="file">Upload File</button>
+                        <button class="tab" data-tab="text">Paste Text</button>
+                    </div>
+
+                    <!-- File Upload Tab -->
+                    <div class="tab-content active" id="file-tab">
+                        <div class="dropzone" id="dropzone">
+                            <div class="dropzone-content">
+                                <span class="dropzone-icon">📁</span>
+                                <p>Drag & drop your tax document here</p>
+                                <p class="dropzone-hint">or click to browse</p>
+                                <p class="dropzone-formats">Supports: PDF, TXT, DOCX</p>
+                            </div>
+                            <input type="file" id="file-input" accept=".pdf,.txt,.docx" hidden>
+                        </div>
+                        <div class="file-info" id="file-info" style="display: none;">
+                            <span class="file-icon">📄</span>
+                            <span class="file-name" id="file-name"></span>
+                            <button class="remove-file" id="remove-file">✕</button>
+                        </div>
+                    </div>
+
+                    <!-- Text Input Tab -->
+                    <div class="tab-content" id="text-tab">
+                        <textarea id="text-input" placeholder="Paste your tax document text here...
+
+Example:
+Article 1: VAT Rates
+The standard VAT rate shall be 19% on all goods and services.
+A reduced rate of 7% applies to food, books, and public transport.
+..."></textarea>
+                    </div>
+
+                    <!-- Configuration -->
+                    <div class="config-section">
+                        <div class="config-row">
+                            <div class="config-item">
+                                <label for="country">Country Code</label>
+                                <select id="country">
+                                    <option value="US">🇺🇸 United States (US)</option>
+                                    <option value="BR">🇧🇷 Brazil (BR)</option>
+                                    <option value="DE">🇩🇪 Germany (DE)</option>
+                                    <option value="FR">🇫🇷 France (FR)</option>
+                                    <option value="GB">🇬🇧 United Kingdom (GB)</option>
+                                    <option value="IT">🇮🇹 Italy (IT)</option>
+                                    <option value="ES">🇪🇸 Spain (ES)</option>
+                                    <option value="NL">🇳🇱 Netherlands (NL)</option>
+                                    <option value="IN">🇮🇳 India (IN)</option>
+                                    <option value="JP">🇯🇵 Japan (JP)</option>
+                                    <option value="AU">🇦🇺 Australia (AU)</option>
+                                    <option value="CA">🇨🇦 Canada (CA)</option>
+                                    <option value="MX">🇲🇽 Mexico (MX)</option>
+                                    <option value="SG">🇸🇬 Singapore (SG)</option>
+                                </select>
+                            </div>
+                            <div class="config-item">
+                                <label for="output-format">Output Format</label>
+                                <select id="output-format">
+                                    <option value="all">All Formats</option>
+                                    <option value="json">JSON Config Only</option>
+                                    <option value="sql">SQL Migration Only</option>
+                                    <option value="yaml">Policy Definition Only</option>
+                                    <option value="code">Python Code Only</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="config-row">
+                            <div class="config-item full-width">
+                                <label for="context">Additional Context (Optional)</label>
+                                <input type="text" id="context" placeholder="e.g., Focus on VAT rates for e-commerce transactions">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="btn-primary" id="process-btn">
+                        <span class="btn-icon">🚀</span>
+                        Process Document
+                    </button>
+                </div>
+
+                <!-- Sample Documents -->
+                <div class="card samples-card">
+                    <h3>📚 Try Sample Documents</h3>
+                    <div class="samples-grid">
+                        <button class="sample-btn" data-sample="brazil">
+                            🇧🇷 Brazil Tax Update
+                        </button>
+                        <button class="sample-btn" data-sample="eu_vat">
+                            🇪🇺 EU VAT Rules
+                        </button>
+                        <button class="sample-btn" data-sample="us_income">
+                            🇺🇸 US Income Tax
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Output Section -->
+            <section class="output-section">
+                <!-- Loading State -->
+                <div class="loading-state" id="loading-state" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Processing document with AI...</p>
+                    <p class="loading-hint">This may take 10-30 seconds</p>
+                </div>
+
+                <!-- Results -->
+                <div class="results" id="results" style="display: none;">
+                    <!-- Summary Card -->
+                    <div class="card result-summary">
+                        <div class="summary-header">
+                            <h2>✅ Processing Complete</h2>
+                            <div class="summary-meta">
+                                <span class="meta-item">
+                                    <strong>Country:</strong> <span id="result-country"></span>
+                                </span>
+                                <span class="meta-item">
+                                    <strong>Language:</strong> <span id="result-language"></span>
+                                </span>
+                                <span class="meta-item">
+                                    <strong>Time:</strong> <span id="result-time"></span>ms
+                                </span>
+                                <span class="meta-item confidence">
+                                    <strong>Confidence:</strong> <span id="result-confidence"></span>%
+                                </span>
+                            </div>
+                        </div>
+                        <p class="summary-text" id="result-summary"></p>
+                        <div class="warnings" id="warnings-container" style="display: none;">
+                            <h4>⚠️ Warnings</h4>
+                            <ul id="warnings-list"></ul>
+                        </div>
+                    </div>
+
+                    <!-- Extracted Entities -->
+                    <div class="card">
+                        <h3>📊 Extracted Entities</h3>
+                        <div class="entities-grid" id="entities-grid"></div>
+                    </div>
+
+                    <!-- Output Tabs -->
+                    <div class="card">
+                        <div class="output-tabs">
+                            <button class="output-tab active" data-output="json">JSON Config</button>
+                            <button class="output-tab" data-output="sql">SQL Migration</button>
+                            <button class="output-tab" data-output="policy">Policy Rules</button>
+                            <button class="output-tab" data-output="code">Python Code</button>
+                        </div>
+
+                        <div class="output-content active" id="json-output">
+                            <div class="output-header">
+                                <span>JSON Configuration</span>
+                                <button class="copy-btn" data-copy="json">📋 Copy</button>
+                            </div>
+                            <pre><code id="json-code"></code></pre>
+                        </div>
+
+                        <div class="output-content" id="sql-output">
+                            <div class="output-header">
+                                <span>SQL Migration Script</span>
+                                <button class="copy-btn" data-copy="sql">📋 Copy</button>
+                            </div>
+                            <pre><code id="sql-code"></code></pre>
+                        </div>
+
+                        <div class="output-content" id="policy-output">
+                            <div class="output-header">
+                                <span>Policy Definition</span>
+                                <button class="copy-btn" data-copy="policy">📋 Copy</button>
+                            </div>
+                            <pre><code id="policy-code"></code></pre>
+                        </div>
+
+                        <div class="output-content" id="code-output">
+                            <div class="output-header">
+                                <span>Python Code</span>
+                                <button class="copy-btn" data-copy="code">📋 Copy</button>
+                            </div>
+                            <pre><code id="python-code"></code></pre>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Initial State -->
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">🔍</div>
+                    <h3>Ready to Process</h3>
+                    <p>Upload a tax document or paste text to get started</p>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Global Tax-Code Translator Agent • Powered by AI • Hackathon Project</p>
+        </footer>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

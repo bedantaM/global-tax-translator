@@ -1,0 +1,65 @@
+BRAZILIAN TAX UPDATE 2024
+
+CHAPTER 1: ICMS (State VAT) Regulations
+
+Article 1 - Standard Rates
+The standard ICMS rate shall be 17% (seventeen percent) for interstate transactions within Brazil.
+For intrastate transactions, the following rates apply:
+- São Paulo: 18%
+- Rio de Janeiro: 20%
+- Other states: 17-19% (varies by state)
+
+Article 2 - Reduced Rates
+A reduced rate of 12% (twelve percent) applies to:
+- Basic food items (rice, beans, bread)
+- Public transportation services
+- Agricultural inputs
+
+A super-reduced rate of 7% (seven percent) applies to:
+- Essential medicines
+- Medical equipment
+- Books and educational materials
+
+Article 3 - Exemptions
+The following are exempt from ICMS:
+- Exports of goods and services
+- International transportation
+- Operations with gold as financial asset
+- Basic food basket items (cesta básica)
+- Medicines for serious diseases
+
+Article 4 - Filing Requirements
+ICMS returns must be filed:
+- Monthly: By the 15th day of the following month
+- Annual reconciliation: By March 31st
+
+Registration threshold: BRL 81,000 annual revenue for simplified regime (Simples Nacional).
+
+Article 5 - Penalties
+Late payment penalty: 0.33% per day, capped at 20%
+Late filing penalty: 2% of tax due per month, minimum BRL 200
+
+CHAPTER 2: PIS/COFINS (Federal Contributions)
+
+Article 6 - Standard Rates
+PIS rate: 1.65% (non-cumulative regime) or 0.65% (cumulative regime)
+COFINS rate: 7.6% (non-cumulative regime) or 3% (cumulative regime)
+
+Article 7 - Zero Rate
+Zero rate applies to:
+- Exports of goods
+- Exports of services
+- Revenue from domestic sales of goods for export
+
+Article 8 - Filing Deadlines
+EFD-Contribuições must be filed monthly by the 10th business day of the second month following the reference period.
+
+CHAPTER 3: Income Tax Withholding (IRRF)
+
+Article 9 - Withholding Rates
+Services rendered by individuals: 15% to 27.5% (progressive)
+Services rendered by legal entities: 1.5% (general services)
+Royalties: 15% (standard) or as per tax treaty
+
+Article 10 - Payment Deadline
+Withholding tax must be paid by the last business day of the week following the payment date.
