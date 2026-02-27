@@ -2,8 +2,9 @@
  * Global Tax-Code Translator Agent - Frontend Application
  */
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8000';
+// API Configuration - Set RAILWAY_API_URL for production or use localhost for development
+// In production, this will be set to your Railway backend URL
+const API_BASE_URL = window.API_BASE_URL || 'https://global-tax-translator-production.up.railway.app';
 
 // Sample Documents
 const SAMPLE_DOCUMENTS = {

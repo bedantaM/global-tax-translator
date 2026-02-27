@@ -3,12 +3,13 @@ Entity Extractor Service
 Extracts tax entities from documents using AI processing
 """
 
+import asyncio
 import json
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 from datetime import date
 
-from ..models.schemas import (
+from models.schemas import (
     ExtractedEntities,
     TaxRate,
     TaxBracket,
@@ -17,8 +18,8 @@ from ..models.schemas import (
     TaxRule,
     TaxType
 )
-from ..prompts.templates import PromptTemplates
-from .ai_processor import AIProcessor
+from prompts.templates import PromptTemplates
+from services.ai_processor import AIProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -219,38 +220,140 @@ class EntityExtractor:
         chunks: list[str],
         country: str,
         language: str = "en",
-        context: Optional[str] = None
+        context: Optional[str] = None,
+        progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        parallel: bool = True,
+        max_concurrent: int = 3
     ) -> tuple[ExtractedEntities, list[Dict[str, Any]]]:
         """
         Extract entities from multiple document chunks and merge results
+        Supports parallel processing for faster extraction from large documents
         
         Args:
             chunks: List of document text chunks
             country: ISO country code
             language: Document language
             context: Additional context
+            progress_callback: Optional callback(current, total, status) for progress updates
+            parallel: Whether to process chunks in parallel (default: True)
+            max_concurrent: Maximum concurrent chunk processing (default: 3)
             
         Returns:
             Tuple of (merged ExtractedEntities, list of raw responses)
         """
-        all_entities = []
-        all_responses = []
+        total_chunks = len(chunks)
+        logger.info(f"Processing {total_chunks} chunks (parallel={parallel}, max_concurrent={max_concurrent})")
         
-        for i, chunk in enumerate(chunks):
-            chunk_context = f"{context or ''} [Chunk {i+1} of {len(chunks)}]"
-            entities, response = await self.extract(
-                document_text=chunk,
-                country=country,
-                language=language,
-                context=chunk_context
+        if progress_callback:
+            progress_callback(0, total_chunks, "Starting chunk processing...")
+        
+        if parallel and total_chunks > 1:
+            # Process chunks in parallel with concurrency limit
+            all_results = await self._process_chunks_parallel(
+                chunks, country, language, context, progress_callback, max_concurrent
             )
-            all_entities.append(entities)
-            all_responses.append(response)
+        else:
+            # Process chunks sequentially
+            all_results = await self._process_chunks_sequential(
+                chunks, country, language, context, progress_callback
+            )
+        
+        # Separate entities and responses
+        all_entities = [r[0] for r in all_results]
+        all_responses = [r[1] for r in all_results]
         
         # Merge all extracted entities
+        if progress_callback:
+            progress_callback(total_chunks, total_chunks, "Merging extracted entities...")
+        
         merged = self._merge_entities(all_entities)
         
+        logger.info(f"Extracted {len(merged.rates)} rates, {len(merged.rules)} rules from {total_chunks} chunks")
+        
         return merged, all_responses
+    
+    async def _process_chunks_sequential(
+        self,
+        chunks: list[str],
+        country: str,
+        language: str,
+        context: Optional[str],
+        progress_callback: Optional[Callable[[int, int, str], None]]
+    ) -> list[tuple[ExtractedEntities, Dict[str, Any]]]:
+        """Process chunks one at a time"""
+        results = []
+        total = len(chunks)
+        
+        for i, chunk in enumerate(chunks):
+            if progress_callback:
+                progress_callback(i, total, f"Processing chunk {i+1} of {total}...")
+            
+            chunk_context = f"{context or ''} [Chunk {i+1} of {total}]"
+            try:
+                entities, response = await self.extract(
+                    document_text=chunk,
+                    country=country,
+                    language=language,
+                    context=chunk_context
+                )
+                results.append((entities, response))
+            except Exception as e:
+                logger.error(f"Failed to process chunk {i+1}: {e}")
+                # Create empty entities for failed chunk
+                results.append((ExtractedEntities(
+                    tax_types=[], rates=[], brackets=[], thresholds=[],
+                    deadlines=[], rules=[], raw_extractions={"error": str(e)}
+                ), {"error": str(e)}))
+        
+        return results
+    
+    async def _process_chunks_parallel(
+        self,
+        chunks: list[str],
+        country: str,
+        language: str,
+        context: Optional[str],
+        progress_callback: Optional[Callable[[int, int, str], None]],
+        max_concurrent: int
+    ) -> list[tuple[ExtractedEntities, Dict[str, Any]]]:
+        """Process chunks in parallel with concurrency limit"""
+        semaphore = asyncio.Semaphore(max_concurrent)
+        total = len(chunks)
+        completed = [0]  # Use list for mutability in nested function
+        
+        async def process_with_semaphore(i: int, chunk: str):
+            async with semaphore:
+                chunk_context = f"{context or ''} [Chunk {i+1} of {total}]"
+                try:
+                    entities, response = await self.extract(
+                        document_text=chunk,
+                        country=country,
+                        language=language,
+                        context=chunk_context
+                    )
+                    result = (entities, response)
+                except Exception as e:
+                    logger.error(f"Failed to process chunk {i+1}: {e}")
+                    result = (ExtractedEntities(
+                        tax_types=[], rates=[], brackets=[], thresholds=[],
+                        deadlines=[], rules=[], raw_extractions={"error": str(e)}
+                    ), {"error": str(e)})
+                
+                completed[0] += 1
+                if progress_callback:
+                    progress_callback(completed[0], total, f"Processed chunk {i+1} ({completed[0]}/{total})")
+                
+                return i, result
+        
+        # Create tasks for all chunks
+        tasks = [process_with_semaphore(i, chunk) for i, chunk in enumerate(chunks)]
+        
+        # Wait for all to complete
+        results_with_indices = await asyncio.gather(*tasks)
+        
+        # Sort by original index and return just the results
+        sorted_results = sorted(results_with_indices, key=lambda x: x[0])
+        return [r[1] for r in sorted_results]
     
     def _merge_entities(self, entities_list: list[ExtractedEntities]) -> ExtractedEntities:
         """

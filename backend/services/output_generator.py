@@ -8,12 +8,12 @@ import logging
 from datetime import datetime
 from typing import Optional, Dict, Any
 
-from ..models.schemas import (
+from models.schemas import (
     ExtractedEntities, JSONConfig, SQLMigration, 
     PolicyDefinition, GeneratedCode, TaxType
 )
-from ..prompts.templates import PromptTemplates
-from .ai_processor import AIProcessor
+from prompts.templates import PromptTemplates
+from services.ai_processor import AIProcessor
 
 logger = logging.getLogger(__name__)
 

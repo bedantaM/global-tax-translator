@@ -1,5 +1,5 @@
 # Services package
-from .document_parser import DocumentParser
-from .ai_processor import AIProcessor
-from .entity_extractor import EntityExtractor
-from .output_generator import OutputGenerator
+from services.document_parser import DocumentParser
+from services.ai_processor import AIProcessor, MockAIProcessor
+from services.entity_extractor import EntityExtractor
+from services.output_generator import OutputGenerator

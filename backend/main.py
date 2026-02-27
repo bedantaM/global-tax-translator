@@ -128,8 +128,8 @@ async def process_document(
         if len(content) == 0:
             raise HTTPException(status_code=400, detail="Empty file provided")
         
-        # Check file size
-        max_size = int(os.getenv("MAX_FILE_SIZE_MB", "10")) * 1024 * 1024
+        # Check file size - increased limit for large tax documents
+        max_size = int(os.getenv("MAX_FILE_SIZE_MB", "50")) * 1024 * 1024  # Default 50MB for large PDFs
         if len(content) > max_size:
             raise HTTPException(status_code=400, detail=f"File too large. Maximum size: {max_size // (1024*1024)}MB")
         
@@ -241,24 +241,52 @@ async def process_text(request: TextProcessRequest):
         # Validate entities
         warnings = entity_extractor.validate_entities(entities)
         
-        # Generate outputs
+        # Generate outputs - handle failures gracefully
         outputs = {}
+        generation_errors = []
+        
         if request.output_format in [OutputFormat.ALL, OutputFormat.JSON]:
-            outputs["json_config"] = await output_generator.generate_json_config(
-                entities, request.country.upper(), country_name
-            )
+            try:
+                outputs["json_config"] = await output_generator.generate_json_config(
+                    entities, request.country.upper(), country_name
+                )
+            except Exception as e:
+                logger.warning(f"JSON config generation failed: {e}")
+                generation_errors.append(f"JSON config generation failed: {str(e)}")
+                outputs["json_config"] = None
+        
         if request.output_format in [OutputFormat.ALL, OutputFormat.SQL]:
-            outputs["sql_migration"] = await output_generator.generate_sql_migration(
-                entities, request.country.upper(), country_name
-            )
+            try:
+                outputs["sql_migration"] = await output_generator.generate_sql_migration(
+                    entities, request.country.upper(), country_name
+                )
+            except Exception as e:
+                logger.warning(f"SQL migration generation failed: {e}")
+                generation_errors.append(f"SQL migration generation failed: {str(e)}")
+                outputs["sql_migration"] = None
+        
         if request.output_format in [OutputFormat.ALL, OutputFormat.YAML]:
-            outputs["policy_definition"] = await output_generator.generate_policy_definition(
-                entities, request.country.upper(), country_name
-            )
+            try:
+                outputs["policy_definition"] = await output_generator.generate_policy_definition(
+                    entities, request.country.upper(), country_name
+                )
+            except Exception as e:
+                logger.warning(f"Policy definition generation failed: {e}")
+                generation_errors.append(f"Policy definition generation failed: {str(e)}")
+                outputs["policy_definition"] = None
+        
         if request.output_format in [OutputFormat.ALL, OutputFormat.CODE]:
-            outputs["generated_code"] = await output_generator.generate_code(
-                entities, request.country.upper(), country_name
-            )
+            try:
+                outputs["generated_code"] = await output_generator.generate_code(
+                    entities, request.country.upper(), country_name
+                )
+            except Exception as e:
+                logger.warning(f"Code generation failed: {e}")
+                generation_errors.append(f"Code generation failed: {str(e)}")
+                outputs["generated_code"] = None
+        
+        # Add generation errors to warnings
+        warnings = warnings + entities.raw_extractions.get("warnings", []) + generation_errors
         
         processing_time = int((time.time() - start_time) * 1000)
         
@@ -276,7 +304,7 @@ async def process_text(request: TextProcessRequest):
             policy_definition=outputs.get("policy_definition"),
             generated_code=outputs.get("generated_code"),
             confidence_score=entities.raw_extractions.get("confidence_score", 0.8),
-            warnings=warnings + entities.raw_extractions.get("warnings", []),
+            warnings=warnings,
             source_sections=[]
         )
         

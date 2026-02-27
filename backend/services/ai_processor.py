@@ -69,7 +69,7 @@ class AIProcessor:
         "UA": "Ukraine",
     }
     
-    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None):
+    def __init__(self, api_key: Optional[str] = None, model: Optional[str] = None, api_base: Optional[str] = None):
         """
         Initialize AI Processor with LiteLLM
         
@@ -81,13 +81,21 @@ class AIProcessor:
                    - Azure: "azure/gpt-4", "azure/gpt-4-turbo"
                    - Anthropic: "claude-3-opus-20240229", "claude-3-sonnet-20240229"
                    - Google: "gemini/gemini-pro"
+                   - OpenAI Compatible: Any model name with custom api_base
+            api_base: Custom API base URL for OpenAI-compatible endpoints
         """
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.model = model or os.getenv("LLM_MODEL", os.getenv("OPENAI_MODEL", "gpt-4-turbo-preview"))
+        self.api_base = api_base or os.getenv("OPENAI_API_BASE")
         
         # Set the API key in environment for LiteLLM
         if self.api_key:
             os.environ["OPENAI_API_KEY"] = self.api_key
+        
+        # Set custom API base if provided
+        if self.api_base:
+            os.environ["OPENAI_API_BASE"] = self.api_base
+            logger.info(f"Using custom API base: {self.api_base}")
         
         if not self.api_key:
             logger.warning("API key not set. AI processing will fail. Set OPENAI_API_KEY or provider-specific key.")
@@ -129,17 +137,29 @@ class AIProcessor:
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_prompt}
                 ],
-                "temperature": temperature,
                 "max_tokens": max_tokens,
             }
             
-            # Add JSON response format for OpenAI models
-            if self.model.startswith(("gpt-", "azure/")):
+            # gpt-5 models don't support custom temperature, only temperature=1
+            if self.model.startswith("gpt-5"):
+                completion_kwargs["temperature"] = 1
+            else:
+                completion_kwargs["temperature"] = temperature
+            
+            # Add JSON response format for OpenAI models (but not gpt-5 which may not support it)
+            if self.model.startswith(("gpt-3", "gpt-4", "azure/")):
                 completion_kwargs["response_format"] = {"type": "json_object"}
             
             response = completion(**completion_kwargs)
             
-            return response.choices[0].message.content
+            content = response.choices[0].message.content
+            
+            # Handle empty or None responses
+            if content is None or content.strip() == "":
+                logger.warning("LLM returned empty response, retrying...")
+                raise ValueError("LLM returned empty response")
+            
+            return content
             
         except Exception as e:
             logger.error(f"LLM processing failed: {e}")
@@ -230,6 +250,7 @@ class AIProcessor:
     async def chunk_text(self, text: str, max_tokens: int = 6000) -> list[str]:
         """
         Split text into chunks that fit within token limits
+        Uses smart chunking that respects page/section boundaries
         
         Args:
             text: Input text
@@ -238,6 +259,13 @@ class AIProcessor:
         Returns:
             List of text chunks
         """
+        # Try smart chunking first (by page markers)
+        smart_chunks = self._smart_chunk_by_sections(text, max_tokens)
+        if smart_chunks:
+            logger.info(f"Using smart section-based chunking: {len(smart_chunks)} chunks")
+            return smart_chunks
+        
+        # Fall back to token-based chunking
         try:
             import tiktoken
             encoding = tiktoken.encoding_for_model(self.model)
@@ -259,6 +287,7 @@ class AIProcessor:
             if current_chunk:
                 chunks.append(encoding.decode(current_chunk))
             
+            logger.info(f"Using token-based chunking: {len(chunks)} chunks")
             return chunks
             
         except Exception:
@@ -269,7 +298,71 @@ class AIProcessor:
             for i in range(0, len(text), char_limit):
                 chunks.append(text[i:i + char_limit])
             
+            logger.info(f"Using character-based chunking: {len(chunks)} chunks")
             return chunks
+    
+    def _smart_chunk_by_sections(self, text: str, max_tokens: int) -> list[str]:
+        """
+        Intelligently chunk text by page markers or section headers
+        
+        Args:
+            text: Full document text
+            max_tokens: Maximum tokens per chunk
+            
+        Returns:
+            List of text chunks split at logical boundaries, or empty list if not possible
+        """
+        import re
+        
+        # Common section/page delimiters
+        page_pattern = r'---\s*Page\s+\d+\s*---'
+        section_pattern = r'\n(?:Chapter|Section|Part|Article)\s+[\dIVXLCDM]+'
+        
+        # Try splitting by page markers first
+        if re.search(page_pattern, text, re.IGNORECASE):
+            parts = re.split(page_pattern, text)
+            return self._merge_parts_to_chunks(parts, max_tokens)
+        
+        # Try splitting by section headers
+        if re.search(section_pattern, text, re.IGNORECASE):
+            parts = re.split(section_pattern, text)
+            return self._merge_parts_to_chunks(parts, max_tokens)
+        
+        # No logical boundaries found
+        return []
+    
+    def _merge_parts_to_chunks(self, parts: list[str], max_tokens: int) -> list[str]:
+        """
+        Merge small parts into appropriately sized chunks
+        
+        Args:
+            parts: List of document parts
+            max_tokens: Maximum tokens per chunk
+            
+        Returns:
+            List of merged chunks
+        """
+        chunks = []
+        current_chunk = ""
+        char_limit = max_tokens * 4  # Rough estimate
+        
+        for part in parts:
+            part = part.strip()
+            if not part:
+                continue
+            
+            # If adding this part would exceed limit, save current chunk
+            if len(current_chunk) + len(part) > char_limit and current_chunk:
+                chunks.append(current_chunk.strip())
+                current_chunk = part
+            else:
+                current_chunk += "\n\n" + part if current_chunk else part
+        
+        # Don't forget the last chunk
+        if current_chunk:
+            chunks.append(current_chunk.strip())
+        
+        return chunks if len(chunks) > 1 else []  # Return empty if single chunk (use default)
     
     def is_available(self) -> bool:
         """Check if AI service is available"""
