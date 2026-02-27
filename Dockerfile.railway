@@ -1,32 +1,25 @@
-# Global Tax-Code Translator Agent - Railway Deployment
-# Backend only - Single stage build
-
+# Global Tax-Code Translator - Railway Deployment
 FROM python:3.11-slim
 
-WORKDIR /app
+# Set working directory
+WORKDIR /app/backend
 
-# Install system dependencies for PDF/OCR processing
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     tesseract-ocr \
-    tesseract-ocr-por \
-    tesseract-ocr-deu \
-    tesseract-ocr-fra \
-    tesseract-ocr-spa \
     poppler-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Copy and install requirements
 COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend code
 COPY backend/ .
 
-# Default port (Railway overrides this via PORT env var)
-ENV PORT=8080
-
-# Expose port
+# Port configuration - Railway will set $PORT
 EXPOSE 8080
 
-# Run with shell to expand $PORT variable
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
+# Start command - uses exec form with shell for $PORT expansion
+ENTRYPOINT ["sh", "-c"]
+CMD ["uvicorn main:app --host 0.0.0.0 --port ${PORT:-8080}"]
